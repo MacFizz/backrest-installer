@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
+VERSION="1.20251216"
 
 ### =========================================================
 ### Aide
 ### =========================================================
 usage() {
-cat <<'EOF'
+cat <<EOF
 Backrest + Restic installer / manager
+v${VERSION}
 
 USAGE:
   install-backrest.sh <command> [options]
@@ -50,24 +52,36 @@ OVERRIDE_DIR="/etc/systemd/system/${SERVICE}.service.d"
 CRED_DIR="/etc/systemd/credentials/${SERVICE}.service"
 OVERRIDE_FILE="${OVERRIDE_DIR}/override.conf"
 
+CLI_TIMEOUT=3
+BACKREST_URL="http://127.0.0.1:9898"
+
 ### =========================================================
 ### STATUS
 ### =========================================================
 if [[ "$COMMAND" == "status" ]]; then
     echo "=== Service systemd ==="
-    systemctl status backrest --no-pager || true
+    systemctl is-active --quiet backrest \
+        && echo "Backrest actif" \
+        || { echo "Backrest inactif"; exit 0; }
 
     echo
-    echo "=== Ports ouverts ==="
-    ss -lntp | grep backrest || echo "Backrest non actif"
+    echo "=== Port Backrest ==="
+    ss -lnt | grep -q ':9898' \
+        && echo "Port 9898 ouvert" \
+        || { echo "Port 9898 non ouvert"; exit 0; }
 
     echo
-    echo "=== Dépôts Backrest ==="
-    backrest cli repo list 2>/dev/null || echo "Backrest non configuré"
+    echo "=== Interface Web ==="
+    if curl -fs --max-time 2 "http://127.0.0.1:9898/" >/dev/null; then
+        echo "Interface web accessible"
+    else
+        echo "Interface web inaccessible"
+        exit 0
+    fi
 
     echo
-    echo "=== Plans de sauvegarde ==="
-    backrest cli backup list 2>/dev/null || echo "Aucun plan trouvé"
+    echo "=== Dépôts et plans (non bloquant) ==="
+    echo "Impossible d'interroger via CLI car le serveur est actif. Consultez l'UI pour détails."
 
     exit 0
 fi
